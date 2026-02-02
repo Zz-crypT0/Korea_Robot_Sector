@@ -209,7 +209,3 @@ MIT License - 자세한 내용은 [LICENSE](LICENSE) 파일 참조
 > 투자 결정은 본인의 판단과 책임 하에 이루어져야 하며,
 > 본 프로젝트의 정보를 기반으로 한 투자 손실에 대해 책임을 지지 않습니다.
 > 과거 성과가 미래 수익을 보장하지 않습니다.
-
----
-
-Made with ❤️ by AI Quant Research Team
