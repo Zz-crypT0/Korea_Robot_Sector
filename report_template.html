@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_title }} | {{ report_date }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        :root {
+            --primary: #1a365d;
+            --secondary: #2b6cb0;
+            --accent: #ed8936;
+            --success: #38a169;
+            --danger: #e53e3e;
+            --warning: #d69e2e;
+            --bg-light: #f7fafc;
+            --text-dark: #1a202c;
+            --text-muted: #718096;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .report-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 40px;
+            margin-bottom: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .report-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .report-header .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .report-meta {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+
+        .report-meta span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid var(--border);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .card-header h2 {
+            font-size: 1.25rem;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .card-header .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* Executive Summary */
+        .executive-summary {
+            background: linear-gradient(135deg, #f6f9fc 0%, #edf2f7 100%);
+            border-left: 4px solid var(--accent);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .summary-item {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .summary-item .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .summary-item .label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .summary-item.positive .value { color: var(--success); }
+        .summary-item.negative .value { color: var(--danger); }
+        .summary-item.warning .value { color: var(--warning); }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .data-table th {
+            background: var(--primary);
+            color: white;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .data-table th:first-child { border-radius: 8px 0 0 0; }
+        .data-table th:last-child { border-radius: 0 8px 0 0; }
+
+        .data-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .data-table .positive { color: var(--success); font-weight: 600; }
+        .data-table .negative { color: var(--danger); font-weight: 600; }
+
+        .data-table .rating {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .rating.buy { background: #c6f6d5; color: #22543d; }
+        .rating.hold { background: #fefcbf; color: #744210; }
+        .rating.sell { background: #fed7d7; color: #742a2a; }
+
+        /* Charts */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+        }
+
+        /* Flow Analysis */
+        .flow-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .flow-bar {
+            width: 100px;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .flow-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .flow-bar-fill.positive { background: var(--success); }
+        .flow-bar-fill.negative { background: var(--danger); }
+
+        /* Sections */
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 40px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid var(--accent);
+        }
+
+        /* Grid Layouts */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Top Picks */
+        .top-pick-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid var(--border);
+            transition: all 0.2s;
+        }
+
+        .top-pick-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .top-pick-card .rank {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            color: white;
+            border-radius: 50%;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .top-pick-card .stock-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .top-pick-card .ticker {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .top-pick-card .metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+            font-size: 0.85rem;
+        }
+
+        .top-pick-card .metric-label {
+            color: var(--text-muted);
+        }
+
+        .top-pick-card .metric-value {
+            font-weight: 600;
+        }
+
+        /* Footer */
+        .report-footer {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 40px;
+            border-top: 1px solid var(--border);
+        }
+
+        .disclaimer {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 30px;
+            font-size: 0.85rem;
+            color: #742a2a;
+        }
+
+        .disclaimer-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        /* Nav */
+        .nav-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0;
+        }
+
+        .nav-tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover {
+            color: var(--primary);
+        }
+
+        .nav-tab.active {
+            color: var(--primary);
+            font-weight: 600;
+            border-bottom-color: var(--primary);
+        }
+
+        /* Progress Bar */
+        .score-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score-bar-bg {
+            flex: 1;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .score-bar-fill.high { background: linear-gradient(90deg, #48bb78, #38a169); }
+        .score-bar-fill.medium { background: linear-gradient(90deg, #ecc94b, #d69e2e); }
+        .score-bar-fill.low { background: linear-gradient(90deg, #fc8181, #e53e3e); }
+
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card { animation: fadeIn 0.3s ease; }
+
+        /* Print Styles */
+        @media print {
+            body { background: white; }
+            .container { max-width: 100%; }
+            .card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
+            .nav-tabs { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="report-header">
+            <h1>{{ report_title }}</h1>
+            <p class="subtitle">{{ report_subtitle }}</p>
+            <div class="report-meta">
+                <span>📅 {{ report_date }}</span>
+                <span>👤 {{ author }}</span>
+                <span>🔄 {{ update_frequency }}</span>
+            </div>
+        </header>
+
+        <!-- Executive Summary -->
+        <section class="card executive-summary">
+            <div class="card-header">
+                <h2>📊 Executive Summary</h2>
+                <span class="badge" style="background: {{ sector_sentiment_color }}; color: white;">
+                    {{ sector_sentiment }}
+                </span>
+            </div>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="value">{{ total_stocks }}</div>
+                    <div class="label">분석 종목 수</div>
+                </div>
+                <div class="summary-item {{ 'positive' if sector_return_1m > 0 else 'negative' }}">
+                    <div class="value">{{ sector_return_1m }}%</div>
+                    <div class="label">섹터 평균 수익률 (1M)</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value">{{ avg_score }}</div>
+                    <div class="label">평균 투자 스코어</div>
+                </div>
+                <div class="summary-item {{ 'positive' if sector_flow == '매집' else 'negative' if sector_flow == '이탈' else '' }}">
+                    <div class="value">{{ sector_flow }}</div>
+                    <div class="label">섹터 수급 신호</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value">{{ buy_rating_count }}</div>
+                    <div class="label">매수 의견 종목</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value">{{ total_market_cap_trillion }}조</div>
+                    <div class="label">섹터 시가총액</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showSection('overview')">시장 개요</button>
+            <button class="nav-tab" onclick="showSection('stocks')">종목 분석</button>
+            <button class="nav-tab" onclick="showSection('flow')">수급 분석</button>
+            <button class="nav-tab" onclick="showSection('etf')">ETF 분석</button>
+            <button class="nav-tab" onclick="showSection('technical')">기술적 분석</button>
+        </div>
+
+        <!-- Section: Market Overview -->
+        <section id="section-overview">
+            <h2 class="section-title">📈 시장 개요 및 섹터 동향</h2>
+
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>섹터 성과 추이</h2>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="sectorPerformanceChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>카테고리별 분포</h2>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>🏆 Top Picks - 추천 종목</h2>
+                </div>
+                <div class="grid-3" id="topPicksContainer">
+                    {% for stock in top_picks %}
+                    <div class="top-pick-card">
+                        <span class="rank">{{ loop.index }}</span>
+                        <div class="stock-name">{{ stock.name }}</div>
+                        <div class="ticker">{{ stock.ticker }}</div>
+                        <div class="metrics">
+                            <div>
+                                <div class="metric-label">현재가</div>
+                                <div class="metric-value">{{ stock.current_price | format_price }}원</div>
+                            </div>
+                            <div>
+                                <div class="metric-label">1M 수익률</div>
+                                <div class="metric-value {{ 'positive' if stock.price_change_1m > 0 else 'negative' }}">
+                                    {{ stock.price_change_1m | round(1) }}%
+                                </div>
+                            </div>
+                            <div>
+                                <div class="metric-label">PER</div>
+                                <div class="metric-value">{{ stock.per | round(1) if stock.per else 'N/A' }}</div>
+                            </div>
+                            <div>
+                                <div class="metric-label">투자점수</div>
+                                <div class="metric-value">{{ stock.score | round(0) }}</div>
+                            </div>
+                        </div>
+                        <div class="score-bar" style="margin-top: 12px;">
+                            <div class="score-bar-bg">
+                                <div class="score-bar-fill {{ 'high' if stock.score >= 70 else 'medium' if stock.score >= 40 else 'low' }}"
+                                     style="width: {{ stock.score }}%"></div>
+                            </div>
+                            <span class="rating {{ 'buy' if stock.rating == '매수' else 'hold' if stock.rating == '중립' else 'sell' }}">
+                                {{ stock.rating }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Stock Analysis -->
+        <section id="section-stocks" style="display: none;">
+            <h2 class="section-title">📋 종목별 상세 분석</h2>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>전체 종목 현황</h2>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>종목명</th>
+                                <th>현재가</th>
+                                <th>1D</th>
+                                <th>1M</th>
+                                <th>3M</th>
+                                <th>PER</th>
+                                <th>PBR</th>
+                                <th>RSI</th>
+                                <th>추세</th>
+                                <th>점수</th>
+                                <th>의견</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stock in all_stocks %}
+                            <tr>
+                                <td>
+                                    <strong>{{ stock.name }}</strong>
+                                    <br><small style="color: #718096;">{{ stock.ticker }}</small>
+                                </td>
+                                <td>{{ stock.current_price | format_price }}</td>
+                                <td class="{{ 'positive' if stock.price_change_1d > 0 else 'negative' if stock.price_change_1d < 0 else '' }}">
+                                    {{ stock.price_change_1d | round(2) }}%
+                                </td>
+                                <td class="{{ 'positive' if stock.price_change_1m > 0 else 'negative' if stock.price_change_1m < 0 else '' }}">
+                                    {{ stock.price_change_1m | round(2) }}%
+                                </td>
+                                <td class="{{ 'positive' if stock.price_change_3m > 0 else 'negative' if stock.price_change_3m < 0 else '' }}">
+                                    {{ stock.price_change_3m | round(2) }}%
+                                </td>
+                                <td>{{ stock.per | round(1) if stock.per else '-' }}</td>
+                                <td>{{ stock.pbr | round(2) if stock.pbr else '-' }}</td>
+                                <td>{{ stock.rsi | round(1) if stock.rsi else '-' }}</td>
+                                <td>{{ stock.ma_signal }}</td>
+                                <td>
+                                    <div class="score-bar">
+                                        <div class="score-bar-bg" style="width: 60px;">
+                                            <div class="score-bar-fill {{ 'high' if stock.score >= 70 else 'medium' if stock.score >= 40 else 'low' }}"
+                                                 style="width: {{ stock.score }}%"></div>
+                                        </div>
+                                        <span>{{ stock.score | round(0) }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="rating {{ 'buy' if stock.rating == '매수' else 'hold' if stock.rating == '중립' else 'sell' }}">
+                                        {{ stock.rating }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Flow Analysis -->
+        <section id="section-flow" style="display: none;">
+            <h2 class="section-title">💰 투자자별 수급 분석</h2>
+
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🌍 외국인 순매수 Top 5</h2>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>종목</th>
+                                <th>5일 순매수</th>
+                                <th>20일 순매수</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stock in top_foreign_buy %}
+                            <tr>
+                                <td>{{ stock.name }}</td>
+                                <td class="{{ 'positive' if stock.foreign_5d > 0 else 'negative' }}">
+                                    {{ stock.foreign_5d | format_money }}
+                                </td>
+                                <td class="{{ 'positive' if stock.foreign_20d > 0 else 'negative' }}">
+                                    {{ stock.foreign_20d | format_money }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🏛️ 기관 순매수 Top 5</h2>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>종목</th>
+                                <th>5일 순매수</th>
+                                <th>20일 순매수</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stock in top_institution_buy %}
+                            <tr>
+                                <td>{{ stock.name }}</td>
+                                <td class="{{ 'positive' if stock.institution_5d > 0 else 'negative' }}">
+                                    {{ stock.institution_5d | format_money }}
+                                </td>
+                                <td class="{{ 'positive' if stock.institution_20d > 0 else 'negative' }}">
+                                    {{ stock.institution_20d | format_money }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>📊 수급 추이 차트</h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="flowChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>🎯 수급 선도 종목 (외국인+기관 동시 매수)</h2>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>종목</th>
+                            <th>외국인 20일</th>
+                            <th>기관 20일</th>
+                            <th>수급 신호</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stock in flow_leaders %}
+                        <tr>
+                            <td><strong>{{ stock.name }}</strong></td>
+                            <td class="positive">{{ stock.foreign_20d | format_money }}</td>
+                            <td class="positive">{{ stock.institution_20d | format_money }}</td>
+                            <td>
+                                <span class="rating buy">{{ stock.flow_signal }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section: ETF Analysis -->
+        <section id="section-etf" style="display: none;">
+            <h2 class="section-title">📦 로봇 섹터 ETF 분석</h2>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>ETF 성과 비교</h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="etfChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ETF명</th>
+                            <th>유형</th>
+                            <th>현재가</th>
+                            <th>1M 수익률</th>
+                            <th>3M 수익률</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for etf in etf_list %}
+                        <tr>
+                            <td>
+                                <strong>{{ etf.name }}</strong>
+                                <br><small style="color: #718096;">{{ etf.ticker }}</small>
+                            </td>
+                            <td>{{ etf.type }}</td>
+                            <td>{{ etf.current_price | format_price }}</td>
+                            <td class="{{ 'positive' if etf.return_1m > 0 else 'negative' }}">
+                                {{ etf.return_1m | round(2) }}%
+                            </td>
+                            <td class="{{ 'positive' if etf.return_3m > 0 else 'negative' }}">
+                                {{ etf.return_3m | round(2) }}%
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section: Technical Analysis -->
+        <section id="section-technical" style="display: none;">
+            <h2 class="section-title">📉 기술적 분석</h2>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>추세 분포</h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>RSI 과매수/과매도 종목</h2>
+                    </div>
+                    <h4 style="margin: 16px 0 8px; color: var(--success);">과매도 (RSI < 30) - 매수 검토</h4>
+                    <ul style="list-style: none; padding: 0;">
+                        {% for stock in oversold_stocks %}
+                        <li style="padding: 8px 0; border-bottom: 1px solid var(--border);">
+                            {{ stock.name }} <span style="color: var(--success);">RSI {{ stock.rsi | round(1) }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                    <h4 style="margin: 24px 0 8px; color: var(--danger);">과매수 (RSI > 70) - 차익실현 검토</h4>
+                    <ul style="list-style: none; padding: 0;">
+                        {% for stock in overbought_stocks %}
+                        <li style="padding: 8px 0; border-bottom: 1px solid var(--border);">
+                            {{ stock.name }} <span style="color: var(--danger);">RSI {{ stock.rsi | round(1) }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>이동평균 정배열 종목</h2>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 16px;">
+                        주가 > MA20 > MA60 > MA120 (강한 상승 추세)
+                    </p>
+                    <ul style="list-style: none; padding: 0;">
+                        {% for stock in golden_cross_stocks %}
+                        <li style="padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
+                            <span><strong>{{ stock.name }}</strong></span>
+                            <span class="rating buy">{{ stock.ma_signal }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Disclaimer -->
+        <div class="disclaimer">
+            <div class="disclaimer-title">⚠️ 투자 유의사항</div>
+            <p>
+                본 리포트는 투자 참고 자료로 제공되며, 투자 권유를 목적으로 하지 않습니다.
+                투자 결정은 본인의 판단과 책임 하에 이루어져야 하며, 본 리포트의 내용을
+                기반으로 한 투자 손실에 대해 당사는 책임을 지지 않습니다.
+                과거 성과가 미래 수익을 보장하지 않습니다.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <footer class="report-footer">
+            <p>Generated by AI Quant Research | Last Updated: {{ report_datetime }}</p>
+            <p>Data Sources: KRX, NAVER Finance, pykrx</p>
+        </footer>
+    </div>
+
+    <script>
+        // Section Navigation
+        function showSection(sectionId) {
+            document.querySelectorAll('[id^="section-"]').forEach(section => {
+                section.style.display = 'none';
+            });
+            document.getElementById('section-' + sectionId).style.display = 'block';
+
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // Chart.js Configuration
+        Chart.defaults.font.family = "'Pretendard', -apple-system, sans-serif";
+
+        // Sector Performance Chart
+        const sectorCtx = document.getElementById('sectorPerformanceChart');
+        if (sectorCtx) {
+            new Chart(sectorCtx, {
+                type: 'line',
+                data: {
+                    labels: {{ performance_dates | safe }},
+                    datasets: [{
+                        label: '로봇 섹터 지수',
+                        data: {{ performance_values | safe }},
+                        borderColor: '#2b6cb0',
+                        backgroundColor: 'rgba(43, 108, 176, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Category Distribution Chart
+        const categoryCtx = document.getElementById('categoryChart');
+        if (categoryCtx) {
+            new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: {{ category_labels | safe }},
+                    datasets: [{
+                        data: {{ category_values | safe }},
+                        backgroundColor: [
+                            '#1a365d', '#2b6cb0', '#4299e1',
+                            '#ed8936', '#38a169', '#d69e2e',
+                            '#9f7aea', '#e53e3e'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Flow Chart
+        const flowCtx = document.getElementById('flowChart');
+        if (flowCtx) {
+            new Chart(flowCtx, {
+                type: 'bar',
+                data: {
+                    labels: {{ flow_dates | safe }},
+                    datasets: [{
+                        label: '외국인',
+                        data: {{ foreign_flow_values | safe }},
+                        backgroundColor: '#2b6cb0'
+                    }, {
+                        label: '기관',
+                        data: {{ institution_flow_values | safe }},
+                        backgroundColor: '#ed8936'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: false },
+                        y: { stacked: false }
+                    }
+                }
+            });
+        }
+
+        // Trend Distribution Chart
+        const trendCtx = document.getElementById('trendChart');
+        if (trendCtx) {
+            new Chart(trendCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['강한상승', '상승', '단기상승', '중립', '단기하락', '하락', '강한하락'],
+                    datasets: [{
+                        label: '종목 수',
+                        data: {{ trend_distribution | safe }},
+                        backgroundColor: [
+                            '#22543d', '#38a169', '#68d391',
+                            '#718096',
+                            '#fc8181', '#e53e3e', '#742a2a'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
